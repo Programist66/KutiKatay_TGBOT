@@ -1,5 +1,3 @@
-import bcrypt as bcrypt
-
 import BDWorker
 import Config
 import Manager
@@ -89,21 +87,8 @@ def callback_inline(call):
     try:
         if call.message:
             data = call.data.split(sep="-")
-            if data[0] == "prev":
-                manager.choise_day(call.message, date.today() - relativedelta(months=1))
-            elif data[0] == "current":
-                manager.choise_day(call.message, date.today())
-            elif data[0] == "next":
-                manager.choise_day(call.message, date.today() + relativedelta(months=1))
-            elif data[0].isdigit():
-                if 1 <= int(data[0]) <= 31:
-                    manager.change_workstatus(call.message, date.fromisoformat(data[1]))
-            elif data[0] == "yes":
-                Manager.schedule[date.fromisoformat(data[1]).day - 1] = True
-                bot.delete_message(call.message.chat.id, call.message.message_id)
-            elif data[0] == "no":
-                Manager.schedule[date.fromisoformat(data[1]).day - 1] = False
-                bot.delete_message(call.message.chat.id, call.message.message_id)
+            if data[0] == Manager.callback_id:
+                manager.callback_handler(call)
     except Exception as e:
         print(e)
 
