@@ -1,0 +1,4 @@
+BOT_TOKEN = "7070060393:AAGAfMR5IIbsxtDEx6zmNScMULVOleWufj4"
+
+BD_Login = "KUTI_TG_BOT"
+BD_Password = "X5VLzY9a_o"
