@@ -12,14 +12,10 @@ from dateutil.relativedelta import relativedelta
 
 import SysAdmin
 
-bot = TeleBot(Config.BOT_TOKEN)
+bot = TeleBot(Config.TOKEN)
 
 manager = Manager.Manager(bot)
 sysAdmin = SysAdmin.SysAdmin(bot)
-
-
-def verify_key(user_input, hashed_key):
-    return bcrypt.checkpw(bytes.fromhex(user_input), hashed_key.encode('utf-8'))
 
 
 def show_buttons(chat_id, operator_type):

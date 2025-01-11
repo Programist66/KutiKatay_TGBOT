@@ -17,7 +17,7 @@ def Create_all_tables():
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            print("Подключение к бд...")
+            print("Проверка таблиц...")
 
             cursor.execute('''
                     CREATE TABLE IF NOT EXISTS hour_rate (
@@ -40,6 +40,7 @@ def Create_all_tables():
                         unique_key TEXT UNIQUE
                     );''')
         conn.commit()
+        print("Таблицы созданы либо существуют")
     finally:
         conn.close()
 
