@@ -1,165 +1,92 @@
-import telebot.types
+import bcrypt as bcrypt
 
+import BDWorker
 import Config
+import Manager
+
 from telebot import TeleBot
 from telebot import types
 
 from datetime import date
-from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 
-import Manager
+import SysAdmin
 
 bot = TeleBot(Config.BOT_TOKEN)
 
-user_id = 0
-
-Rate = {
-    "Обычный": 250,
-    "Золотой": 275,
-    "Платиновый": 300
-}
-
-user = {
-    "FIO": 1,
-    "Rate": 2
-}
-
-
 manager = Manager.Manager(bot)
+sysAdmin = SysAdmin.SysAdmin(bot)
+
+
+def verify_key(user_input, hashed_key):
+    return bcrypt.checkpw(bytes.fromhex(user_input), hashed_key.encode('utf-8'))
+
+
+def show_buttons(chat_id, operator_type):
+    markup = None
+    if operator_type in ("Обычный", "Золотой", "Платиновый"):
+        item1 = types.KeyboardButton("Заполнить график")
+        markup.add(item1)
+    elif operator_type == "Управляющий":
+        markup = manager.Get_Manager_btn()
+    bot.send_message(chat_id, "Выберите опцию:", reply_markup=markup)
+
 
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.send_message(message.chat.id, "Добро пожаловать в бота который считает зарплату операторов КутиКатай.")
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+def start_message(message):
+    chat_id = message.chat.id
+
+    if BDWorker.have_TG_id(chat_id):
+        show_main_menu(chat_id)
+    else:
+        bot.send_message(message.chat.id, "Введите уникальный ключ:")
+        bot.register_next_step_handler(message, check_key)
 
 
-    item1 = types.KeyboardButton("Отчет")
-    item2 = types.KeyboardButton("Изменить профиль")
-    item3 = types.KeyboardButton("График смен")
-    item4 = types.KeyboardButton("Зарплата")
-    markup.add(item1, item2, item3, item4)
-    bot.send_message(message.chat.id, "Вы зарегистрированы!", reply_markup=markup)
+def show_main_menu(chat_id):
+    markup = None
+    operator_type = BDWorker.get_operator_type_by_id(chat_id)
+    if operator_type == "Обычный":
+        item1 = types.KeyboardButton("Заполнить график")
+        markup.add(item1)
+    elif operator_type == "Золотой":
+        item1 = types.KeyboardButton("Заполнить график")
+        item2 = types.KeyboardButton("Доступ к дополнительным ресурсам")
+        markup.add(item1, item2)
+    elif operator_type == "Платиновый":
+        item1 = types.KeyboardButton("Заполнить график")
+        item2 = types.KeyboardButton("Доступ к дополнительным ресурсам")
+        item3 = types.KeyboardButton("Обратная связь с руководством")
+        markup.add(item1, item2, item3)
+    elif operator_type == "Управляющий":
+        markup = manager.Get_Manager_btn()
 
-    print(message.chat.id)
-
-
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    item1 = types.KeyboardButton("Отчет")
-    item2 = types.KeyboardButton("Изменить профиль")
-    item3 = types.KeyboardButton("График смен")
-    item4 = types.KeyboardButton("Зарплата")
-    markup.add(item1, item2, item3, item4)
-    bot.send_message(message.chat.id,
-                     "Вот список команд:\n/registration - зарегистрироваться\n/Report - отправить отчет о закрытии смены\n/Change_Profile - изменить данные профиля\n/shift_schedule - посмотреть график смен\n/salary - посмотреть зарплату",
-                     reply_markup=markup)
+    bot.send_message(chat_id, "Выберите опцию:", reply_markup=markup)
 
 
-# @bot.message_handler(commands=['registration'])
-# def user_reg(message):
-#     try:
-#         markup = types.ReplyKeyboardRemove(selective=False)
-#         msg = bot.send_message(message.chat.id, "Введите ФИО в формате(Иванов Иван Иванович):", reply_markup=markup)
-#         bot.register_next_step_handler(msg, process_fullname_step)
-#     except Exception as e:
-#         print(e)
-#         bot.reply_to(message, "ops")
-#
-#
-# def process_fullname_step(message):
-#     try:
-#         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-#         item1 = types.KeyboardButton("Обычный")
-#         markup.add(item1)
-#         item1 = types.KeyboardButton("Золотой")
-#         markup.add(item1)
-#         item1 = types.KeyboardButton("Платиновый")
-#         markup.add(item1)
-#         user["FIO"] = message.text
-#         msg = bot.send_message(message.chat.id, "Введите ваш статус:", reply_markup=markup)
-#         bot.register_next_step_handler(msg, process_Status)
-#     except Exception as e:
-#         print(e)
-#         bot.reply_to(message, "ops")
-#
-#
-# def process_Status(message):
-#     try:
-#         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-#         item1 = types.KeyboardButton("Отчет")
-#         item2 = types.KeyboardButton("Изменить профиль")
-#         item3 = types.KeyboardButton("График смен")
-#         item4 = types.KeyboardButton("Зарплата")
-#         markup.add(item1, item2, item3, item4)
-#         user["Rate"] = message.text
-#         bot.send_message(message.chat.id, f"Ваш профиль:\n{user['FIO']}\n{user['Rate']} оператор", reply_markup=markup)
-#     except Exception as e:
-#         print(e)
-#         bot.reply_to(message, "ops")
-#
-#
-# @bot.message_handler(commands=['Report'])
-# def report(message):
-#     try:
-#         markup = types.ReplyKeyboardRemove(selective=False)
-#         msg = bot.send_message(message.chat.id, "Перешлите сюда отчет о закрытии", reply_markup=markup)
-#         bot.register_next_step_handler(msg, process_Report)
-#
-#     except Exception as e:
-#         print(e)
-#         bot.reply_to(message, "ops")
-#
-#
-# def process_Report(message):
-#     markup = types.InlineKeyboardMarkup(row_width=2)
-#     item1 = types.InlineKeyboardButton("Верно", callback_data="good")
-#     item2 = types.InlineKeyboardButton("Не верно", callback_data="bad")
-#     markup.add(item1, item2)
-#     bot.send_message(message.chat.id,
-#                      f"Получите со ставки {250} за {12} часов: {3300}\nПолучите с кассы {30000} - {3}%: {30000 / 100 * 3}\nИтого:{4200} ",
-#                      reply_markup=markup)
-#
-#
-# @bot.callback_query_handler(func=lambda call: True)
-# def callback_inline(call):
-#     try:
-#         if call.message:
-#             if call.data == "good":
-#
-#                 #
-#                 bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-#                                       reply_markup=None, text=call.message.text)
-#             elif call.data == "bad":
-#                 pass
-#             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-#             item1 = types.KeyboardButton("Отчет")
-#             item2 = types.KeyboardButton("Изменить профиль")
-#             item3 = types.KeyboardButton("График смен")
-#             item4 = types.KeyboardButton("Зарплата")
-#             markup.add(item1, item2, item3, item4)
-#             bot.send_message(call.message.chat.id, "Отчет добавлен", reply_markup=markup)
-#     except Exception as e:
-#         print(e)
-#
-#
-# @bot.message_handler(commands=['Change_Profile'])
-# def change_profile(message):
-#     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-#     item1 = types.KeyboardButton("Обычный")
-#     markup.add(item1)
-#     item1 = types.KeyboardButton("Золотой")
-#     markup.add(item1)
-#     item1 = types.KeyboardButton("Платиновый")
-#     markup.add(item1)
-#     msg = bot.send_message(message.chat.id, "Введите ваш статус:", reply_markup=markup)
-#     bot.register_next_step_handler(msg, process_Status)
-#
-#
-@bot.message_handler(commands=['shift_schedule'])
-def select_month(message):
-    manager.choise_month(message)
+def check_key(message):
+    chat_id = message.chat.id
+    user_input = message.text.strip()
+
+    if user_input == Config.SYS_ADMIN_KEY:
+        bot.send_message(chat_id, "Добро пожаловать, Сисадмин!")
+        sysAdmin.show_admin_buttons(chat_id)
+        return
+    else:
+        operator_type = BDWorker.get_user_by_uid(user_input)
+        if operator_type is not None:
+            BDWorker.update_user_chat_id_by_UID(user_input, chat_id)
+            bot.send_message(chat_id, "Ключ принят!")
+            print(operator_type)
+            show_buttons(chat_id, operator_type)
+
+        else:
+            bot.send_message(chat_id, "Неверный ключ или пользователь не найден. Попробуйте еще раз:")
+            bot.register_next_step_handler(message, check_key)
+
+
+
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
@@ -173,34 +100,26 @@ def callback_inline(call):
             elif data[0] == "next":
                 manager.choise_day(call.message, date.today() + relativedelta(months=1))
             elif data[0].isdigit():
-                if int(data[0]) >= 1 and int(data[0]) <= 31:
+                if 1 <= int(data[0]) <= 31:
                     manager.change_workstatus(call.message, date.fromisoformat(data[1]))
             elif data[0] == "yes":
-                Manager.schedule[date.fromisoformat(data[1]).day-1] = True
+                Manager.schedule[date.fromisoformat(data[1]).day - 1] = True
                 bot.delete_message(call.message.chat.id, call.message.message_id)
             elif data[0] == "no":
-                Manager.schedule[date.fromisoformat(data[1]).day-1] = False
+                Manager.schedule[date.fromisoformat(data[1]).day - 1] = False
                 bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception as e:
         print(e)
 
-# @bot.message_handler(commands=['salary'])
-# def Salary(message):
-#     bot.send_message(message.chat.id, "Ваша зарплата: ")
 
-#
-# @bot.message_handler()
-# def worker(message):
-#     if message.text == "Регистрация":
-#         user_reg(message)
-#     elif message.text == "Отчет":
-#         report(message)
-#     elif message.text == "Изменить профиль":
-#         change_profile(message)
-#     elif message.text == "График смен":
-#         Schedule(message)
-#     elif message.text == "Зарплата":
-#         Salary(message)
+@bot.message_handler()
+def message_handler(message):
+    if message.text in manager.func.keys():
+        manager.msg_handler(message)
+    elif message.text in sysAdmin.func.keys():
+        sysAdmin.msg_handler(message)
 
 
-bot.infinity_polling()
+if __name__ == '__main__':
+    BDWorker.Create_all_tables()
+    bot.polling(none_stop=True)

@@ -1,39 +1,41 @@
 import datetime
 from datetime import date
 from calendar import monthrange
+
 from dateutil.relativedelta import relativedelta
 
 import locale
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-month_dic =\
+month_dic = \
     {
-        "Январь":"Января",
-        "Февраль":"Февраля",
-        "Март":"Марта",
-        "Апрель":"Апреля",
-        "Май":"Мая",
-        "Июнь":"Июня",
-        "Июль":"Июля",
-        "Август":"Августа",
-        "Сентябрь":"Сентября",
-        "Октябрь":"Октября",
-        "Ноябрь":"Ноября",
-        "Декабрь":"Декабря"
+        "Январь": "Января",
+        "Февраль": "Февраля",
+        "Март": "Марта",
+        "Апрель": "Апреля",
+        "Май": "Мая",
+        "Июнь": "Июня",
+        "Июль": "Июля",
+        "Август": "Августа",
+        "Сентябрь": "Сентября",
+        "Октябрь": "Октября",
+        "Ноябрь": "Ноября",
+        "Декабрь": "Декабря"
     }
 
 schedule = \
-        [True, False, True,True, False, True,False,
-         True, False, True, True, False, True, False,
-         True, False, True, True, False, True, False,
-         True, False, True, True, False, True, False,
-         True, False, True
-        ]
+    [True, False, True, True, False, True, False,
+     True, False, True, True, False, True, False,
+     True, False, True, True, False, True, False,
+     True, False, True, True, False, True, False,
+     True, False, True
+     ]
 
 yes = "✅"
 no = "❌"
+
 
 class Manager:
     bot: telebot = None
@@ -54,23 +56,40 @@ class Manager:
             InlineKeyboardButton(next_month.strftime("%B"), callback_data="next"))
         send_msg = self.bot.send_message(msg.chat.id, "Выберите месяц: ", reply_markup=markup)
 
-    def choise_day(self, msg, date : date):
+    def choise_day(self, msg, date: date):
         markup = InlineKeyboardMarkup(row_width=7)
         days = []
         for i in range(monthrange(date.year, date.month)[1]):
             days.append(InlineKeyboardButton(f"{i + 1} {yes if schedule[i] else no}",
                                              callback_data=f"{i + 1}"
-                                                           f"-{datetime.date(date.year, date.month, i + 1).strftime("%Y%m%d")}"))
+                                                           f"-{datetime.date(date.year, date.month, i + 1).strftime('%Y%m%d')}"))
         markup.add(*days)
-        self.bot.edit_message_text(chat_id = msg.chat.id,message_id=msg.message_id ,
-                                   text = "Выберите число: ", reply_markup=markup)
+        self.bot.edit_message_text(chat_id=msg.chat.id, message_id=msg.message_id,
+                                   text="Выберите число: ", reply_markup=markup)
 
-    def change_workstatus(self, msg, date : date):
+    def change_workstatus(self, msg, date: date):
         markup = InlineKeyboardMarkup(row_width=2)
-        choises = []
-        choises.append(InlineKeyboardButton(f"{yes} Да", callback_data=f"yes-{date.strftime("%Y%m%d")}"))
-        choises.append(InlineKeyboardButton(f"{no} Нет", callback_data=f"no-{date.strftime("%Y%m%d")}"))
-        markup.add(*choises)
+        choices = [InlineKeyboardButton(f"{yes} Да", callback_data=f"yes-{date.strftime('%Y%m%d')}"),
+                   InlineKeyboardButton(f"{no} Нет", callback_data=f"no-{date.strftime('%Y%m%d')}")]
+        markup.add(*choices)
         self.bot.send_message(msg.chat.id,
-                         f"Выбранная дата: {date.day} {month_dic[date.strftime("%B")]}"
-                         f"\nВы работаете:", reply_markup = markup)
+                              f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
+                              f"\nВы работаете:", reply_markup=markup)
+
+    def Get_Manager_btn(self):
+        markup = ReplyKeyboardMarkup(row_width=1)
+        items = []
+        for i in self.func.keys():
+            items.append(KeyboardButton(i))
+        markup.add(*items)
+        return markup
+
+    func = {"Заполнить свой график": lambda self, msg: self.choise_month(msg),
+            "Заполнить график операторов": 1,
+            "Добавить отчет": 1,
+            "Выгрузить отчет": 1,
+            "Табелировать оператора": 1
+            }
+
+    def msg_handler(self, msg):
+        self.func[msg.text](msg)
