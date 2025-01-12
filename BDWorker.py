@@ -1,3 +1,5 @@
+from datetime import date
+
 import psycopg2
 
 import Config
@@ -38,6 +40,27 @@ def Create_all_tables():
                         Post_id INTEGER REFERENCES posts(id),
                         telegram_chat_id BIGINT UNIQUE,
                         unique_key TEXT UNIQUE
+                    );''')
+            cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS Percent_Rate(
+                        Id serial PRIMARY KEY,
+                        Count integer NOT NULL
+                    );''')
+            cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS Rental_point(
+                        Id serial PRIMARY KEY,
+                        Name VARCHAR(100) NOT NULL,
+                        Rate_Id integer REFERENCES Percent_Rate(Id),
+                        Terminal VARCHAR(100),
+                        Merchant VARCHAR(100)
+                    );''')
+            cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS Schedules(
+                        Id serial PRIMARY KEY,
+                        work_date date NOT NULL,
+                        Point_id integer NULL REFERENCES Rental_point(Id),
+                        User_id integer REFERENCES users (Id),
+                        isWork boolean
                     );''')
         conn.commit()
         print("Таблицы созданы либо существуют")
@@ -91,7 +114,7 @@ def get_user_by_uid(UID):
             if user:
                 unique_key, Post_id = user
                 cursor.execute(f"SELECT name FROM posts WHERE id = {Post_id}")
-                return cursor.fetchone()
+                return cursor.fetchone()[0]
             else:
                 return None
 
@@ -101,4 +124,55 @@ def update_user_chat_id_by_UID(UID, chat_id):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute("UPDATE users SET telegram_chat_id = %s WHERE unique_key = %s", (chat_id, UID))
+            conn.commit()
+
+
+def get_schedule_by_tg_id(tg_id, montn_number):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id 
+                FROM schedules, users WHERE schedules.user_id = 
+                (SELECT Id FROM users WHERE telegram_chat_id = %s)
+                AND
+                users.telegram_chat_id = %s
+                AND
+                extract(month from schedules.work_date) = %s;;
+            ''', (tg_id, tg_id, montn_number))
+            return cursor.fetchall()
+
+def get_schedule_by_tg_id_and_date(tg_id, date: date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id 
+                    FROM schedules, users WHERE schedules.user_id = 
+                    (SELECT Id FROM users WHERE telegram_chat_id = %s)
+                    AND
+                    users.telegram_chat_id = %s
+                    AND
+                    schedules.work_date = %s;;
+                ''', (tg_id, tg_id, date.isoformat()))
+            return cursor.fetchone()
+
+def update_schedule_by_tg_id_and_date(tg_id, date:date, isWork, rental_point_id = "NULL"):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                UPDATE schedules SET point_id = {rental_point_id}, iswork = %s WHERE 
+                user_id = (SELECT Id FROM users WHERE telegram_chat_id = %s)
+                and work_date = %s;''', ( isWork, tg_id, date.isoformat()))
+            conn.commit()
+
+def add_schedule_by_tg_id_and_date(tg_id, date:date, isWork, rental_point_id = "NULL"):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute(f'''
+                INSERT INTO schedules(work_date, point_id, user_id, iswork)
+                VALUES(%s, {rental_point_id}, (SELECT Id FROM users WHERE telegram_chat_id = %s), %s);
+            ''', (date.isoformat(), tg_id, isWork))
             conn.commit()

@@ -18,6 +18,7 @@ sysAdmin = SysAdmin.SysAdmin(bot)
 
 def show_buttons(chat_id, operator_type):
     markup = None
+    operator_type = operator_type
     if operator_type in ("Обычный", "Золотой", "Платиновый"):
         item1 = types.KeyboardButton("Заполнить график")
         markup.add(item1)
@@ -71,7 +72,6 @@ def check_key(message):
         if operator_type is not None:
             BDWorker.update_user_chat_id_by_UID(user_input, chat_id)
             bot.send_message(chat_id, "Ключ принят!")
-            print(operator_type)
             show_buttons(chat_id, operator_type)
 
         else:
