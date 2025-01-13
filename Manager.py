@@ -1,7 +1,6 @@
 import datetime
 from datetime import date
 from calendar import monthrange
-from urllib.parse import scheme_chars
 
 from dateutil.relativedelta import relativedelta
 
@@ -76,19 +75,21 @@ class Manager:
         markup = InlineKeyboardMarkup(row_width=1)
         text = "Вы будете работать?"
         schedule = BDWorker.get_schedule_by_tg_id(msg.chat.id, date.month)
-        if date < date.today():
+        if date <= date.today():
             items = [InlineKeyboardButton(f"{ok}", callback_data=f"{callback_id}-ok-{date.strftime('%Y%m%d')}")]
             text = "Вы не работали!"
             for i in range(len(schedule)):
                 if schedule[i][0] == date:
                     if schedule[i][1]:
-                        text = "Вы работали!"
+                        if schedule[i][3] is None:
+                          text = "Вы работали"
+                        else:
+                            text = f"Вы работали на ТП: {BDWorker.get_rantal_point_by_id(schedule[i][3])}"
 
         else:
             items = [InlineKeyboardButton(f"{yes} Да", callback_data=f"{callback_id}-yes-{date.strftime('%Y%m%d')}"),
                     InlineKeyboardButton(f"{no} Нет", callback_data=f"{callback_id}-no-{date.strftime('%Y%m%d')}")]
         markup.add(*items)
-
         self.bot.send_message(msg.chat.id,
                               f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
                               f"\n{text}", reply_markup=markup)
@@ -105,7 +106,6 @@ class Manager:
             "Заполнить график операторов": 1,
             "Добавить отчет": 1,
             "Выгрузить отчет": 1,
-            "Табелировать оператора": 1
             }
 
     def msg_handler(self, msg):

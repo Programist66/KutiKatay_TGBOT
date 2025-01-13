@@ -51,6 +51,7 @@ def Create_all_tables():
                         Id serial PRIMARY KEY,
                         Name VARCHAR(100) NOT NULL,
                         Rate_Id integer REFERENCES Percent_Rate(Id),
+                        Owner_id integer REFERENCES users(id),
                         Terminal VARCHAR(100),
                         Merchant VARCHAR(100)
                     );''')
@@ -102,7 +103,7 @@ def get_operator_type_by_id(chat_id):
                 cursor.execute(
                     "SELECT name FROM posts WHERE id = (SELECT Post_id FROM users WHERE telegram_chat_id = %s)",
                     (chat_id,))
-                return cursor.fetchone()
+                return cursor.fetchone()[0]
 
 
 def get_user_by_uid(UID):
@@ -176,3 +177,37 @@ def add_schedule_by_tg_id_and_date(tg_id, date:date, isWork, rental_point_id = "
                 VALUES(%s, {rental_point_id}, (SELECT Id FROM users WHERE telegram_chat_id = %s), %s);
             ''', (date.isoformat(), tg_id, isWork))
             conn.commit()
+
+def get_rantal_point_by_id(rental_point_id : int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT name FROM rental_point WHERE id = %s
+            ''', (rental_point_id,))
+            return cursor.fetchone()[0]
+
+def get_all_users():
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT users.id, users.full_name, posts.name, hour_rate.rate 
+                FROM users 
+                LEFT JOIN posts ON users.Post_id = posts.id 
+                LEFT JOIN hour_rate ON posts.hour_id = hour_rate.id
+            ''')
+            return cursor.fetchall()
+
+def get_user_info_by_id(user_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT users.full_name, posts.name, hour_rate.rate 
+                FROM users 
+                LEFT JOIN posts ON users.Post_id = posts.id 
+                LEFT JOIN hour_rate ON posts.hour_id = hour_rate.id
+                WHERE users.id = %s
+            ''', (user_id,))
+            return cursor.fetchone()
