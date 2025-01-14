@@ -1,3 +1,4 @@
+from io import BytesIO
 import telebot
 from telebot import types
 import openpyxl

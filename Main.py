@@ -69,11 +69,10 @@ def check_key(message):
         sysAdmin.show_admin_buttons(chat_id)
         return
     else:
-        operator_type = BDWorker.get_user_by_uid(user_input)
+        operator_type = BDWorker.get_operator_by_uid(user_input)
         if operator_type is not None:
             BDWorker.update_user_chat_id_by_UID(user_input, chat_id)
             bot.send_message(chat_id, "Ключ принят!")
-            print(operator_type)
             show_buttons(chat_id, operator_type)
         else:
             bot.send_message(chat_id, "Неверный ключ или пользователь не найден. Попробуйте еще раз:")
@@ -84,7 +83,7 @@ def check_key(message):
 
 
 @bot.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
+def callback_inline(call : types.CallbackQuery):
     try:
         if call.message:
             data = call.data.split(sep="-")
@@ -98,11 +97,21 @@ def callback_inline(call):
 
 
 @bot.message_handler()
-def message_handler(message):
-    if message.text in manager.func.keys():
-        manager.msg_handler(message)
-    elif message.text in sysAdmin.func.keys():
-        sysAdmin.msg_handler(message)
+def message_handler(message : types.Message):
+    try:
+        operator_type = BDWorker.get_operator_type_by_id(message.chat.id)
+        if operator_type in ("Обычный", "Золотой", "Платиновый"):
+            pass
+        elif operator_type == "Управляющий":
+            if message.text in manager.func.keys():
+                manager.msg_handler(message)
+            else:
+                bot.send_message(message.chat.id, "Неизвестная комманда")
+        else:
+            if message.text in sysAdmin.func.keys():
+                sysAdmin.msg_handler(message)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == '__main__':

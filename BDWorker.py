@@ -87,37 +87,32 @@ def have_TG_id(chat_id):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT telegram_chat_id FROM users WHERE telegram_chat_id = %s", (chat_id,))
-            if cursor.fetchone() is not None:
-                return True
-            else:
-                return False
+            return True if cursor.fetchone() else False
 
 
 def get_operator_type_by_id(chat_id):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT Post_id FROM users WHERE telegram_chat_id = %s", (chat_id,))
-            user = cursor.fetchone()
-            if user:
-                cursor.execute(
-                    "SELECT name FROM posts WHERE id = (SELECT Post_id FROM users WHERE telegram_chat_id = %s)",
-                    (chat_id,))
-                return cursor.fetchone()[0]
+            cursor.execute("SELECT name FROM posts WHERE id = (SELECT Post_id FROM users WHERE telegram_chat_id = %s)", (chat_id,))
+            post = cursor.fetchone()
+            return post[0] if post else None
 
 
-def get_user_by_uid(UID):
+def get_operator_by_uid(UID):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT unique_key, Post_id FROM users WHERE unique_key = %s", (UID,))
-            user = cursor.fetchone()
-            if user:
-                unique_key, Post_id = user
-                cursor.execute(f"SELECT name FROM posts WHERE id = {Post_id}")
-                return cursor.fetchone()[0]
-            else:
-                return None
+            cursor.execute("SELECT name FROM posts WHERE id = (SELECT Post_id FROM users WHERE unique_key = %s);", (UID,))
+            post = cursor.fetchone()
+            return post[0] if post else None
+
+def get_user_by_id(id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT full_name FROM users WHERE id = %s", (id,))
+            return cursor.fetchone()
 
 
 def update_user_chat_id_by_UID(UID, chat_id):
@@ -128,7 +123,7 @@ def update_user_chat_id_by_UID(UID, chat_id):
             conn.commit()
 
 
-def get_schedule_by_tg_id(tg_id, montn_number):
+def get_schedule_by_tg_id(tg_id, month_number):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
@@ -139,8 +134,8 @@ def get_schedule_by_tg_id(tg_id, montn_number):
                 AND
                 users.telegram_chat_id = %s
                 AND
-                extract(month from schedules.work_date) = %s;;
-            ''', (tg_id, tg_id, montn_number))
+                extract(month from schedules.work_date) = %s
+            ''', (tg_id, tg_id, month_number))
             return cursor.fetchall()
 
 def get_schedule_by_tg_id_and_date(tg_id, date: date):
@@ -211,3 +206,43 @@ def get_user_info_by_id(user_id):
                 WHERE users.id = %s
             ''', (user_id,))
             return cursor.fetchone()
+
+def get_subordinate_rental_points_id_by_tg_id(tg_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id FROM rental_point WHERE owner_id = (SELECT id FROM users WHERE telegram_chat_id = %s);
+            ''', (tg_id,))
+            return cursor.fetchall()
+
+def get_operator_by_rental_point_id_and_date(rental_point_id : int, date:date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT full_name FROM users WHERE id = (
+                           SELECT user_id FROM schedules WHERE work_date = %s AND point_id = %s);
+            ''', (date.isoformat(), rental_point_id))
+            print(cursor.fetchall())
+
+def get_rental_point_by_id(rental_point_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''SELECT name FROM rental_point WHERE id = %s''', (rental_point_id,))
+            return cursor.fetchone()
+
+def get_schedule_by_month_and_rental_point_id(month_number, rental_point_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT work_date, user_id
+                FROM schedules WHERE 
+                point_id = %s
+                AND
+                extract(month from work_date) = %s
+                AND iswork = true
+            ''', (rental_point_id, month_number))          
+            return cursor.fetchall()
