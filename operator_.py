@@ -120,7 +120,7 @@ class Operator:
     func = {
         "Посмотреть зарплату" : lambda self, msg : self.salary(msg),
         "График смен" : lambda self, msg : self.choise_month(msg),
-        "Посмотреть отчет" : lambda self, msg : self.report(msg)
+        "Добавить отчет" : lambda self, msg : self.report(msg)
     }
 
     def msg_handler(self, message):
@@ -130,7 +130,6 @@ class Operator:
         try:
             if call.message:
                 data = call.data.split(sep="-")[1:]
-                print(data)
                 if data[0] == "prev":
                     self.choise_day(call.message, date.today() - relativedelta(months=1))
                 elif data[0] == "current":

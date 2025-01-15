@@ -20,16 +20,6 @@ sysAdmin = SysAdmin.SysAdmin(bot)
 operator = operator_.Operator(bot)
 
 
-def show_buttons(chat_id, operator_type):
-    markup = None
-    if operator_type in ("Обычный", "Золотой", "Платиновый"):
-        item1 = types.KeyboardButton("Заполнить график")
-        markup.add(item1)
-    elif operator_type == "Управляющий":
-        markup = manager.Get_Manager_btn()
-    bot.send_message(chat_id, "Выберите опцию:", reply_markup=markup)
-
-
 @bot.message_handler(commands=['start'])
 def start_message(message):
     chat_id = message.chat.id
@@ -65,7 +55,7 @@ def check_key(message):
         if operator_type is not None:
             BDWorker.update_user_chat_id_by_UID(user_input, chat_id)
             bot.send_message(chat_id, "Ключ принят!")
-            show_buttons(chat_id, operator_type)
+            show_main_menu(chat_id)
         else:
             bot.send_message(chat_id, "Неверный ключ или пользователь не найден. Попробуйте еще раз:")
             bot.register_next_step_handler(message, check_key)

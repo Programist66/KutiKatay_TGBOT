@@ -153,27 +153,27 @@ def get_schedule_by_tg_id_and_date(tg_id, date: date):
                 ''', (tg_id, tg_id, date.isoformat()))
             return cursor.fetchone()
 
-def update_schedule_by_tg_id_and_date(tg_id, date:date, isWork, rental_point_id = "NULL"):
+def update_schedule_by_tg_id_and_date(tg_id, date:date, isWork):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
             cursor.execute(f'''
-                UPDATE schedules SET point_id = {rental_point_id}, iswork = %s WHERE 
+                UPDATE schedules SET point_id = NULL, iswork = %s WHERE 
                 user_id = (SELECT Id FROM users WHERE telegram_chat_id = %s)
                 and work_date = %s;''', ( isWork, tg_id, date.isoformat()))
             conn.commit()
 
-def add_schedule_by_tg_id_and_date(tg_id, date:date, isWork, rental_point_id = "NULL"):
+def add_schedule_by_tg_id_and_date(tg_id, date:date, isWork):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
             cursor.execute(f'''
                 INSERT INTO schedules(work_date, point_id, user_id, iswork)
-                VALUES(%s, {rental_point_id}, (SELECT Id FROM users WHERE telegram_chat_id = %s), %s);
+                VALUES(%s, NULL, (SELECT Id FROM users WHERE telegram_chat_id = %s), %s);
             ''', (date.isoformat(), tg_id, isWork))
             conn.commit()
 
-def get_rantal_point_by_id(rental_point_id : int):
+def get_rental_point_by_id(rental_point_id : int):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
@@ -253,6 +253,29 @@ def get_operators_id_by_date(date:date):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute('''
-            SELECT user_id FROM schedule WHERE work_date = %s AND iswork = true;
-            ''', (date.isoformat()))
+            SELECT user_id FROM schedules WHERE work_date = %s AND iswork = true;
+            ''', (date.isoformat(),))
             return cursor.fetchall()
+
+def remove_operator_by_id_and_date_and_rental_point_id(operator_id:int, date:date, rental_point_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            UPDATE schedules SET point_id = NULL 
+            WHERE work_date = %s
+            AND user_id = %s
+            AND point_id = %s
+            ''', (date.isoformat(), operator_id, rental_point_id))
+            conn.commit()
+
+def update_schedules_for_operator_id_by_date_and_rental_point_id(operator_id:int, date:date, rental_point_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            UPDATE schedules SET point_id = %s 
+            WHERE work_date = %s
+            AND user_id = %s
+            ''', (rental_point_id, date.isoformat(), operator_id))
+            conn.commit()

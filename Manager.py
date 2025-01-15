@@ -105,8 +105,9 @@ class Manager:
 
     def change_workstatus(self, msg, date: date):
         markup = InlineKeyboardMarkup(row_width=1)
-        text = "Вы будете работать?"
+        text = ""
         schedule = BDWorker.get_schedule_by_tg_id(msg.chat.id, date.month)
+        items=[]
         if date <= date.today():
             items = [InlineKeyboardButton(f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}-{date.strftime('%Y%m%d')}")]
             text = "Вы не работали!"
@@ -114,13 +115,22 @@ class Manager:
                 if schedule[i][0] == date:
                     if schedule[i][1]:
                         if schedule[i][3] is None:
-                          text = "Вы работали"
+                          text = "Вы не работали"
                         else:
-                            text = f"Вы работали на ТП: {BDWorker.get_rantal_point_by_id(schedule[i][3])}"
+                            text = f"Вы работали на ТП: {BDWorker.get_rental_point_by_id(schedule[i][3])[0]}"
 
         else:
-            items = [InlineKeyboardButton(f"{emoji.yes.value} Да", callback_data=f"{callback_id}-{callback_type.yes.value}-{date.strftime('%Y%m%d')}"),
-                    InlineKeyboardButton(f"{emoji.no.value} Нет", callback_data=f"{callback_id}-{callback_type.no.value}-{date.strftime('%Y%m%d')}")]
+            text = "ТП не назначена управляющим"            
+            for i in schedule:
+                if i[0] == date:
+                    if i[3] is not None:
+                        text = f"ТП: {BDWorker.get_rental_point_by_id(i[3])[0]}"
+                    if i[1] == True:
+                        items = [InlineKeyboardButton(f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}-{date.strftime('%Y%m%d')}"),
+                                InlineKeyboardButton(f"{emoji.no.value} Не буду рабоать", callback_data=f"{callback_id}-{callback_type.no.value}-{date.strftime('%Y%m%d')}")]
+                    elif i[1] == False:
+                        items = [InlineKeyboardButton(f"{emoji.yes.value} Буду рабоать", callback_data=f"{callback_id}-{callback_type.yes.value}-{date.strftime('%Y%m%d')}"),
+                                InlineKeyboardButton(f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}-{date.strftime('%Y%m%d')}")]
         markup.add(*items)
         self.bot.reply_to(msg, f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
                               f"\n{text}", reply_markup=markup)
@@ -138,10 +148,11 @@ class Manager:
             InlineKeyboardButton(next_month.strftime("%B"), callback_data=f"{callback_id}-{callback_type.next_operator_month.value}"))
         self.bot.send_message(msg.chat.id, "Выберите месяц: ", reply_markup=markup)
     
-    def choise_day_for_operator(self, msg : types.Message, date:date):
+    def choise_day_for_operator(self, msg : types.Message, date:date, isFirstCall = True):
         markup = InlineKeyboardMarkup(row_width=7)
         days = []
-        self.bot.delete_message(msg.chat.id, msg.message_id)
+        if isFirstCall:
+            self.bot.delete_message(msg.chat.id, msg.message_id)
         points = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id) 
         for point in points:
             days = []
@@ -169,15 +180,18 @@ class Manager:
         for operator_id in operators_id:
             operators.append(InlineKeyboardButton(text=f"{BDWorker.get_operator_by_id(int(operator_id[0]))[0]}", callback_data="dummy"))
         
-        if len(operators_id) > 0:
-            operators.append(InlineKeyboardButton(text=f"{emoji.remove.value} удалить", callback_data=f"{callback_id}"
-                                                  f"-{callback_type.remove.value}"
-                                                  f"-{date.strftime('%Y%m%d')}"
-                                                  f"-{rental_point_id}"))
-        operators.append(InlineKeyboardButton(text=f"{emoji.add.value} добавить", callback_data=f"{callback_id}"
-                                              f"-{callback_type.add.value}"
-                                              f"-{date.strftime('%Y%m%d')}"
-                                              f"-{rental_point_id}"))
+        if date >= datetime.date.today():
+            if len(operators_id) > 0:
+                operators.append(InlineKeyboardButton(text=f"{emoji.remove.value} удалить", callback_data=f"{callback_id}"
+                                                    f"-{callback_type.remove.value}"
+                                                    f"-{date.strftime('%Y%m%d')}"
+                                                    f"-{rental_point_id}"))
+            operators.append(InlineKeyboardButton(text=f"{emoji.add.value} добавить", callback_data=f"{callback_id}"
+                                                f"-{callback_type.add.value}"
+                                                f"-{date.strftime('%Y%m%d')}"
+                                                f"-{rental_point_id}"))
+        else:
+            operators.append(InlineKeyboardButton(text=f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}"))
         markup.add(*operators)
         self.bot.reply_to(msg, text=f"Дата: {date.day} {month_dic[date.strftime('%B')]}\n"
                           f"ТП: {BDWorker.get_rental_point_by_id(rental_point_id)[0]}\n"
@@ -189,10 +203,17 @@ class Manager:
         markup = InlineKeyboardMarkup(row_width=1)
         if command == callback_type.add.value:
             operators_id = BDWorker.get_operators_id_by_date(date)
-        if command == callback_type.remove.value:
+            if len(operators_id) == 0:
+                operators.append(InlineKeyboardButton(text=f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}"))
+                markup.add(*operators)
+                self.bot.edit_message_text(chat_id = msg.chat.id, message_id = msg.message_id, 
+                                   text=f"Нет сотрудников для добавления!",
+                                   reply_markup = markup)
+                return
+        elif command == callback_type.remove.value:
             operators_id = BDWorker.get_operator_id_by_rental_point_id_and_date(rental_point_id, date)
         for operator_id in operators_id:
-            operators.append(InlineKeyboardButton(text=f"{BDWorker.get_operator_by_id(operator_id[0])}", 
+            operators.append(InlineKeyboardButton(text=f"{BDWorker.get_operator_by_id(operator_id[0])[0]}", 
                                                   callback_data=f"{callback_id}"
                                                   f"-{callback_type.add_operator.value if command == callback_type.add.value else callback_type.remove_operator.value}"
                                                   f"-{date.strftime('%Y%m%d')}"
@@ -202,13 +223,24 @@ class Manager:
         self.bot.edit_message_text(chat_id = msg.chat.id, message_id = msg.message_id, 
                                    text=f"Выберите сотрудника которого хотите {"добавить" if command == callback_type.add.value else "удалить"}",
                                    reply_markup = markup)
-           
+    
+    def remove_operator(self, msg : types.Message, date:date, rental_point_id:int, operator_id:int):
+        BDWorker.remove_operator_by_id_and_date_and_rental_point_id(operator_id, date, rental_point_id)
+        self.bot.delete_message(msg.chat.id, msg.reply_to_message.message_id)
+        self.bot.delete_message(msg.chat.id, msg.message_id)
+        self.choise_day_for_operator(msg, date, isFirstCall=False)
+    
+    def add_operator(self, msg:types.Message, date:date, renta_point_id:int, operator_id:int):
+        BDWorker.update_schedules_for_operator_id_by_date_and_rental_point_id(operator_id, date, renta_point_id)
+        self.bot.delete_message(msg.chat.id, msg.reply_to_message.message_id)
+        self.bot.delete_message(msg.chat.id, msg.message_id)
+        self.choise_day_for_operator(msg, date, isFirstCall=False)
     #endregion    
     #region обработчики сообщий, колбэков и комманд
     func = {"Заполнить свой график": lambda self, msg: self.choise_month_for_me(msg),
             "Заполнить график операторов": lambda self, msg: self.choise_month_for_operator(msg),
-            "Добавить отчет": 1,
-            "Выгрузить отчет": 1,
+            "Добавить отчет": lambda self, msg: self.bot.send_message(msg.chat.id, text=f"Пока не реализованно!!"),
+            "Выгрузить отчет": lambda self, msg: self.bot.send_message(msg.chat.id, text=f"Пока не реализованно!!"),
             }
 
     def msg_handler(self, msg):
@@ -217,36 +249,47 @@ class Manager:
     def callback_handler(self, call : types.CallbackQuery):
         data = call.data.split(sep="-")[1:]
         if data[0] == callback_type.prew_my_month.value:
-            self.choise_day_for_me(call.message, date.today() - relativedelta(months=1))
+            self.choise_day_for_me(msg=call.message, date=date.today() - relativedelta(months=1))
         elif data[0] == callback_type.prew_operator_month.value:
-            self.choise_day_for_operator(call.message, date.today() - relativedelta(months=1))
+            self.choise_day_for_operator(msg=call.message, date=date.today() - relativedelta(months=1))
         elif data[0] == callback_type.current_my_month.value:
-            self.choise_day_for_me(call.message, date.today())
+            self.choise_day_for_me(msg=call.message, date=date.today())
         elif data[0] == callback_type.current_operator_month.value:
-            self.choise_day_for_operator(call.message, date.today())
+            self.choise_day_for_operator(msg=call.message, date=date.today())
         elif data[0] == callback_type.next_my_month.value:
-            self.choise_day_for_me(call.message, date.today() + relativedelta(months=1))
+            self.choise_day_for_me(msg=call.message,date= date.today() + relativedelta(months=1))
         elif data[0] == callback_type.next_operator_month.value:
-            self.choise_day_for_operator(call.message, date.today() + relativedelta(months=1))
+            self.choise_day_for_operator(msg=call.message, date=date.today() + relativedelta(months=1))
         elif data[0].isdigit():
             if 1 <= int(data[0]) <= 31:
                 if data[2] == callback_type.my_day.value:
-                    self.change_workstatus(call.message, date.fromisoformat(data[1]))
+                    self.change_workstatus(msg=call.message, date=date.fromisoformat(data[1]))
                 elif data[2] == callback_type.operator_day.value:                    
-                    self.change_operator_list(call.message, date.fromisoformat(data[1]), data[3])
+                    self.change_operator_list(msg=call.message, date=date.fromisoformat(data[1]),rental_point_id=int(data[3]))
         elif data[0] == callback_type.remove.value:
-            self.show_operators_list(msg=call.message,date=date.fromisoformat(data[1]), rental_point_id = data[2], command = callback_type.remove.value)
+            self.show_operators_list(msg=call.message,date=date.fromisoformat(data[1]), rental_point_id = int(data[2]), command = callback_type.remove.value)
+        elif data[0] == callback_type.remove_operator.value:
+            self.remove_operator(msg=call.message, date=date.fromisoformat(data[1]), rental_point_id=int(data[2]), operator_id=int(data[3]))
+        elif data[0] == callback_type.add.value:
+            self.show_operators_list(msg=call.message,date=date.fromisoformat(data[1]), rental_point_id = int(data[2]), command = callback_type.add.value)
+        elif data[0] == callback_type.add_operator.value:
+            self.add_operator(msg=call.message, date=date.fromisoformat(data[1]), renta_point_id=int(data[2]), operator_id=int(data[3]))
         elif data[0] in (callback_type.yes.value, callback_type.no.value, callback_type.ok.value):
             if data[0] == callback_type.yes.value:
-                if BDWorker.get_schedule_by_tg_id_and_date(call.message.chat.id, date.fromisoformat(data[1])):
+                if BDWorker.get_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1])):
                     BDWorker.update_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1]), isWork=True)
                 else:
                     BDWorker.add_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1]), isWork=True)
+                self.choise_day_for_me(msg=call.message.reply_to_message, date=date.fromisoformat(data[1]))
             elif data[0] == callback_type.no.value:
-                if BDWorker.get_schedule_by_tg_id_and_date(call.message.chat.id, date.fromisoformat(data[1])):
+                if BDWorker.get_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1])):
                     BDWorker.update_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1]), isWork=False)
                 else:
                     BDWorker.add_schedule_by_tg_id_and_date(tg_id=call.message.chat.id, date=date.fromisoformat(data[1]), isWork=False)
+                self.choise_day_for_me(msg=call.message.reply_to_message, date=date.fromisoformat(data[1]))
+            
             self.bot.delete_message(call.message.chat.id, call.message.message_id)
-            self.choise_day_for_me(call.message.reply_to_message, date.fromisoformat(data[1]))
+            
+            
+            
     #endregion
