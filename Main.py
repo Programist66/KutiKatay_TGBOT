@@ -2,7 +2,10 @@ import bcrypt as bcrypt
 
 import BDWorker
 import Config
+
 import Manager
+import SysAdmin
+import operator_
 
 from telebot import TeleBot
 from telebot import types
@@ -10,12 +13,11 @@ from telebot import types
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-import SysAdmin
-
 bot = TeleBot(Config.TOKEN)
 
 manager = Manager.Manager(bot)
 sysAdmin = SysAdmin.SysAdmin(bot)
+operator = operator_.Operator(bot)
 
 
 def show_buttons(chat_id, operator_type):
@@ -101,7 +103,10 @@ def message_handler(message : types.Message):
     try:
         operator_type = BDWorker.get_operator_type_by_id(message.chat.id)
         if operator_type in ("Обычный", "Золотой", "Платиновый"):
-            pass
+            if message.text in operator.func.keys():
+                operator.msg_handler(message)
+            else:
+                bot.send_message(message.chat.id, "Неизвестная комманда")
         elif operator_type == "Управляющий":
             if message.text in manager.func.keys():
                 manager.msg_handler(message)
@@ -110,6 +115,8 @@ def message_handler(message : types.Message):
         else:
             if message.text in sysAdmin.func.keys():
                 sysAdmin.msg_handler(message)
+            else:
+                bot.send_message(message.chat.id, "Неизвестная комманда")
     except Exception as e:
         print(e)
 
