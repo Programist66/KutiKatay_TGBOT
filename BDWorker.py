@@ -107,7 +107,7 @@ def get_operator_by_uid(UID):
             post = cursor.fetchone()
             return post[0] if post else None
 
-def get_user_by_id(id):
+def get_operator_by_id(id : int):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
@@ -216,15 +216,16 @@ def get_subordinate_rental_points_id_by_tg_id(tg_id):
             ''', (tg_id,))
             return cursor.fetchall()
 
-def get_operator_by_rental_point_id_and_date(rental_point_id : int, date:date):
+def get_operator_id_by_rental_point_id_and_date(rental_point_id : int, date:date):
     conn = get_db_connection()
     with conn:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT full_name FROM users WHERE id = (
-                           SELECT user_id FROM schedules WHERE work_date = %s AND point_id = %s);
+                SELECT user_id FROM schedules WHERE work_date = %s AND point_id = %s;
             ''', (date.isoformat(), rental_point_id))
-            print(cursor.fetchall())
+            return cursor.fetchall()
+                 
+
 
 def get_rental_point_by_id(rental_point_id):
     conn = get_db_connection()
@@ -245,4 +246,13 @@ def get_schedule_by_month_and_rental_point_id(month_number, rental_point_id):
                 extract(month from work_date) = %s
                 AND iswork = true
             ''', (rental_point_id, month_number))          
+            return cursor.fetchall()
+
+def get_operators_id_by_date(date:date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT user_id FROM schedule WHERE work_date = %s AND iswork = true;
+            ''', (date.isoformat()))
             return cursor.fetchall()

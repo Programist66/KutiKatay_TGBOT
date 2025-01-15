@@ -31,22 +31,28 @@ month_dic = {
 class emoji(Enum):    
     yes = "✅"
     no = "❌"
+    remove = "➖"
+    add = "➕"
     ok = "🆗"
     good = "🟩"
     bad = "🟥"
 
 class callback_type(Enum):
-    prew_my_month = "prev_my_month"
-    prew_operator_month = "prev_operator_month"
-    current_my_month = "current_my_month"
-    current_operator_month = "current_operator_month"
-    next_my_month = "next_my_month"
-    next_operator_month = "next_operator_month"
-    my_day = "my_day"
-    operator_day = "op_day"
+    prew_my_month = "pmm"
+    prew_operator_month = "pom"
+    current_my_month = "cmm"
+    current_operator_month = "com"
+    next_my_month = "nmm"
+    next_operator_month = "nom"
+    my_day = "md"
+    operator_day = "od"
     yes = "yes"
     no = "no"
     ok = "ok"
+    remove = "remove"
+    remove_operator = "ro"
+    add = "add"
+    add_operator ="ao"
 
 callback_id = "manager"
 
@@ -118,9 +124,6 @@ class Manager:
         markup.add(*items)
         self.bot.reply_to(msg, f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
                               f"\n{text}", reply_markup=markup)
-        # self.bot.send_message(msg.chat.id,
-        #                       f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
-        #                       f"\n{text}", reply_markup=markup)
     #endregion
     #region Создать график операторов
     def choise_month_for_operator(self, msg):
@@ -139,25 +142,67 @@ class Manager:
         markup = InlineKeyboardMarkup(row_width=7)
         days = []
         self.bot.delete_message(msg.chat.id, msg.message_id)
-        points = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id)        
+        points = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id) 
         for point in points:
             days = []
-            schedule = BDWorker.get_schedule_by_month_and_rental_point_id(date.month, point[0])
+            schedule = BDWorker.get_schedule_by_month_and_rental_point_id(date.month, point[0])            
             for i in range(monthrange(date.year, date.month)[1]):
                 text = f"{i + 1} {emoji.bad.value}"
                 day = InlineKeyboardButton(text=f"{text}", callback_data=f"{callback_id}-{i + 1}"
                                                             f"-{datetime.date(date.year, date.month, i + 1).strftime('%Y%m%d')}"
-                                                            f"-{callback_type.operator_day.value}-None")
+                                                            f"-{callback_type.operator_day.value}-{point[0]}")
                 for x in range(len(schedule)):
                     if schedule[x][0].day == i+1:
-                        text = f"{i + 1} {emoji.good.value}"
+                        text = f"{i + 1} {emoji.good.value}"                        
                         day = InlineKeyboardButton(text=f"{text}", callback_data=f"{callback_id}-{i + 1}"
-                                                            f"-{datetime.date(date.year, date.month, i + 1).strftime('%Y%m%d')}"
-                                                            f"-{callback_type.operator_day.value}-{schedule[x][1]}")
+                                                    f"-{datetime.date(date.year, date.month, i + 1).strftime('%Y%m%d')}"
+                                                    f"-{callback_type.operator_day.value}-{point[0]}")                    
                 days.append(day)
             markup.add(*days)        
             self.bot.send_message(msg.chat.id, text=f"Выберите число для точки: {BDWorker.get_rental_point_by_id(point[0])[0]}",
                                    reply_markup=markup)
+    
+    def change_operator_list(self, msg : types.Message, date:date, rental_point_id:int):
+        markup = InlineKeyboardMarkup(row_width=1)
+        operators = []
+        operators_id = BDWorker.get_operator_id_by_rental_point_id_and_date(rental_point_id, date)            
+        for operator_id in operators_id:
+            operators.append(InlineKeyboardButton(text=f"{BDWorker.get_operator_by_id(int(operator_id[0]))[0]}", callback_data="dummy"))
+        
+        if len(operators_id) > 0:
+            operators.append(InlineKeyboardButton(text=f"{emoji.remove.value} удалить", callback_data=f"{callback_id}"
+                                                  f"-{callback_type.remove.value}"
+                                                  f"-{date.strftime('%Y%m%d')}"
+                                                  f"-{rental_point_id}"))
+        operators.append(InlineKeyboardButton(text=f"{emoji.add.value} добавить", callback_data=f"{callback_id}"
+                                              f"-{callback_type.add.value}"
+                                              f"-{date.strftime('%Y%m%d')}"
+                                              f"-{rental_point_id}"))
+        markup.add(*operators)
+        self.bot.reply_to(msg, text=f"Дата: {date.day} {month_dic[date.strftime('%B')]}\n"
+                          f"ТП: {BDWorker.get_rental_point_by_id(rental_point_id)[0]}\n"
+                          f"Сотруднки:", reply_markup=markup)
+
+    def show_operators_list(self, msg : types.Message, date:date, rental_point_id:int, command : str):
+        operators_id = []
+        operators =[]
+        markup = InlineKeyboardMarkup(row_width=1)
+        if command == callback_type.add.value:
+            operators_id = BDWorker.get_operators_id_by_date(date)
+        if command == callback_type.remove.value:
+            operators_id = BDWorker.get_operator_id_by_rental_point_id_and_date(rental_point_id, date)
+        for operator_id in operators_id:
+            operators.append(InlineKeyboardButton(text=f"{BDWorker.get_operator_by_id(operator_id[0])}", 
+                                                  callback_data=f"{callback_id}"
+                                                  f"-{callback_type.add_operator.value if command == callback_type.add.value else callback_type.remove_operator.value}"
+                                                  f"-{date.strftime('%Y%m%d')}"
+                                                  f"-{rental_point_id}"
+                                                  f"-{operator_id[0]}"))
+        markup.add(*operators)
+        self.bot.edit_message_text(chat_id = msg.chat.id, message_id = msg.message_id, 
+                                   text=f"Выберите сотрудника которого хотите {"добавить" if command == callback_type.add.value else "удалить"}",
+                                   reply_markup = markup)
+           
     #endregion    
     #region обработчики сообщий, колбэков и комманд
     func = {"Заполнить свой график": lambda self, msg: self.choise_month_for_me(msg),
@@ -187,8 +232,10 @@ class Manager:
             if 1 <= int(data[0]) <= 31:
                 if data[2] == callback_type.my_day.value:
                     self.change_workstatus(call.message, date.fromisoformat(data[1]))
-                elif data[2] == callback_type.operator_day.value:
-                    pass
+                elif data[2] == callback_type.operator_day.value:                    
+                    self.change_operator_list(call.message, date.fromisoformat(data[1]), data[3])
+        elif data[0] == callback_type.remove.value:
+            self.show_operators_list(msg=call.message,date=date.fromisoformat(data[1]), rental_point_id = data[2], command = callback_type.remove.value)
         elif data[0] in (callback_type.yes.value, callback_type.no.value, callback_type.ok.value):
             if data[0] == callback_type.yes.value:
                 if BDWorker.get_schedule_by_tg_id_and_date(call.message.chat.id, date.fromisoformat(data[1])):
