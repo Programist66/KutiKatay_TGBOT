@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 import locale
 
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 month_dic =\
     {
@@ -43,6 +43,14 @@ class Operator:
     def __init__(self, _bot: telebot):
         self.bot = _bot
         locale.setlocale(locale.LC_TIME, 'ru_RU')
+
+    def Get_operator_Btn(self):
+        markup = ReplyKeyboardMarkup(row_width=1)
+        items = []
+        for i in self.func.keys():
+            items.append(KeyboardButton(i))
+        markup.add(*items)
+        return markup
 
     def choise_month(self, msg):
         current_month = date.today()
@@ -122,6 +130,7 @@ class Operator:
         try:
             if call.message:
                 data = call.data.split(sep="-")[1:]
+                print(data)
                 if data[0] == "prev":
                     self.choise_day(call.message, date.today() - relativedelta(months=1))
                 elif data[0] == "current":
@@ -134,10 +143,10 @@ class Operator:
                 elif call.data == 'create_report':
                     self.bot.send_message(call.message.chat.id, 'Enter the :')
                 elif data[0] == "yes":
-                    self.schedule[date.fromisoformat(data[1]).day - 1] = True
+                    schedule[date.fromisoformat(data[1]).day - 1] = True
                     self.bot.delete_message(call.message.chat.id, call.message.message_id)
                 elif data[0] == "no":
-                    self.schedule[date.fromisoformat(data[1]).day - 1] = False
+                    schedule[date.fromisoformat(data[1]).day - 1] = False
                     self.bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception as e:
             print(e)

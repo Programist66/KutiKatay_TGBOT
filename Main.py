@@ -44,18 +44,8 @@ def start_message(message):
 def show_main_menu(chat_id):
     markup = None
     operator_type = BDWorker.get_operator_type_by_id(chat_id)
-    if operator_type == "Обычный":
-        item1 = types.KeyboardButton("Заполнить график")
-        markup.add(item1)
-    elif operator_type == "Золотой":
-        item1 = types.KeyboardButton("Заполнить график")
-        item2 = types.KeyboardButton("Доступ к дополнительным ресурсам")
-        markup.add(item1, item2)
-    elif operator_type == "Платиновый":
-        item1 = types.KeyboardButton("Заполнить график")
-        item2 = types.KeyboardButton("Доступ к дополнительным ресурсам")
-        item3 = types.KeyboardButton("Обратная связь с руководством")
-        markup.add(item1, item2, item3)
+    if operator_type in ("Обычный", "Золотой", "Платиновый"):
+        markup = operator.Get_operator_Btn()
     elif operator_type == "Управляющий":
         markup = manager.Get_Manager_btn()
 
@@ -93,6 +83,8 @@ def callback_inline(call : types.CallbackQuery):
                 manager.callback_handler(call)
             if data[0] == SysAdmin.callback_id:
                 sysAdmin.callback_handler(call)
+            if data[0] == operator_.callback_id:
+                operator.callback_handler(call)
 
     except Exception as e:
         print(e)
