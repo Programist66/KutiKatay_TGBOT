@@ -299,5 +299,8 @@ def get_day_result_for_rental_point_id_by_month(rental_point_id:int, date:date):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute('''
-            SELECT date, (cash+non_cash+)
-            ''')
+            SELECT date, (cash+non_cash+app_result-refund) as money_result, count_of_checks, how_long_point_iswork
+            FROM day_rezult
+            WHERE extract(month from day_rezult.date) = %s AND point_id = %s 
+            ''', (date.month, rental_point_id))
+            return cursor.fetchall()

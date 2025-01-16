@@ -11,7 +11,7 @@ import locale
 import openpyxl
 import telebot
 from telebot import types
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, InputFile
 
 import BDWorker
 
@@ -248,38 +248,55 @@ class Manager:
         self.choise_day_for_operator(msg, date, isFirstCall=False)
     #endregion    
     #region Выгрузить отчет
-    def create_report(self, msg):
-        pass
+    def create_report(self, msg : types.Message):        
+        points_id = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id)
+        for point_id in points_id:         
+            excel_file = self.create_excel_file(point_id[0])
+            excel_file.seek(0)
+            uploaded_file = InputFile(excel_file, f'{BDWorker.get_rental_point_by_id(point_id[0])[0]}.xlsx')
 
-    def create_excel_file(self):
-        users = BDWorker.get_all_users()
+            self.bot.send_document(
+                msg.chat.id,
+                uploaded_file,
+                caption=f"{BDWorker.get_rental_point_by_id(point_id[0])[0]}"
+            )
+
+    def create_excel_file(self, rental_point_id:int):
+        date = datetime.date.today()
+        days_result = BDWorker.get_day_result_for_rental_point_id_by_month(rental_point_id, date.today())
+
         workbook = openpyxl.Workbook()
         sheet = workbook.active
-        sheet.title = "Сотрудники"
-
-
-        sheet.append(["ID", "Имя", "Должность", "Часовая ставка"])
-
-
-        for user in users:
-            if len(user) == 4:
-                user_id, full_name, post_name, hour_rate = user
-                sheet.append([user_id, full_name, post_name, hour_rate])
+        sheet.title = f"{BDWorker.get_rental_point_by_id(rental_point_id)[0]}"
+        sheet.append(["Дата", "Итоговая касса", "колличество чеков", "Время работы ТП"])
+        
+        all_dates = []
+        for i in days_result:
+            all_dates.append(i[0])
+        
+        print(f"До {all_dates}")
+        all_dates.sort()
+        print(f"После {all_dates}")
+        for i in range(monthrange(date.year, date.month)[1]):
+            current_date = datetime.date(date.year, date.month, i+1)
+            if current_date in all_dates:
+                for day_result in days_result:
+                    if days_result[0] == current_date:
+                        sheet.append([current_date.strftime("%d.%m.%Y"), day_result[1], day_result[2], day_result[3]])
             else:
-                print("Ошибка: неверное количество данных для пользователя:", user)
-
+                sheet.append([current_date.strftime("%d.%m.%Y"), 0, 0, 0])
 
         excel_file = BytesIO()
         workbook.save(excel_file)
         excel_file.seek(0)
-
         return excel_file
+    
     #endregion
     #region обработчики сообщий, колбэков и комманд
     func = {"Заполнить свой график": lambda self, msg: self.choise_month_for_me(msg),
             "Заполнить график операторов": lambda self, msg: self.choise_month_for_operator(msg),
             "Добавить отчет": lambda self, msg: self.bot.send_message(msg.chat.id, text=f"Пока не реализованно!!"),
-            "Выгрузить отчет": lambda self, msg: self.bot.send_message(msg.chat.id, text=f"Пока не реализованно!!"),
+            "Выгрузить отчет": lambda self, msg: self.create_report(msg),
             }
 
     def msg_handler(self, msg):
