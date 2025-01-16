@@ -10,9 +10,6 @@ import operator_
 from telebot import TeleBot
 from telebot import types
 
-from datetime import date
-from dateutil.relativedelta import relativedelta
-
 bot = TeleBot(Config.TOKEN)
 
 manager = Manager.Manager(bot)

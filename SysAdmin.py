@@ -170,15 +170,6 @@ class SysAdmin:
             return
 
         markup = types.InlineKeyboardMarkup()
-
-
-        markup.add(
-            types.InlineKeyboardButton(text="👤 ФИО", callback_data="dummy"),
-            types.InlineKeyboardButton(text="📋 Должность", callback_data="dummy"),
-            types.InlineKeyboardButton(text="💰 Часовая ставка (₽)", callback_data="dummy"),
-        )
-
-
         for employee in current_employees:
             if len(employee) >= 4:
                 user_id, full_name, post_name, hour_rate = employee[:4]
@@ -187,9 +178,8 @@ class SysAdmin:
                     types.InlineKeyboardButton(text=f"{post_name}", callback_data="dummy"),
                     types.InlineKeyboardButton(text=f"{hour_rate}₽", callback_data="dummy"),
                 )
-
         items = []
-        if self.current_employee_index > 0:            
+        if self.current_employee_index > 0:
             items.append(types.InlineKeyboardButton("◀️", callback_data=f"{callback_id}-prev"))
 
         items.append(types.InlineKeyboardButton("❌", callback_data=f"{callback_id}-back_to_admin"))
@@ -199,10 +189,9 @@ class SysAdmin:
 
         markup.add(*items)
 
-        self.bot.send_message(chat_id, "🧑‍💼 Информация о сотрудниках:", reply_markup=markup)
+        message = self.bot.send_message(chat_id, "🧑‍💼 Информация о сотрудниках:", reply_markup=markup)
 
-
-
+        self.last_message_id = message.message_id
 
     func = {
         "Добавить пользователя": lambda self, msg: self.add_user_handler(msg),
@@ -226,9 +215,10 @@ class SysAdmin:
         elif data[0] == "prev":
             if self.current_employee_index > 0:
                 self.current_employee_index -= 1
-            self.display_employee_details(call.message.chat.id)
+                self.display_employee_details(call.message)
         elif data[0] == "next":
-            self.current_employee_index += 1
-            self.display_employee_details(call.message)
+            if(self.current_employee_index + 1) * self.page_size < len(self.employees_list):
+                self.current_employee_index += 1
+                self.display_employee_details(call.message)
     def msg_handler(self, msg):
         self.func[msg.text](self, msg)

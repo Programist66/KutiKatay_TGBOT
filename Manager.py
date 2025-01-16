@@ -131,8 +131,11 @@ class Manager:
                             text += f"\nОтработали: {schedule[i][4]} {declension_hours(schedule[i][4])}"
 
         else:
-            text = "ТП не назначена управляющим"            
+            text = "ТП не назначена управляющим"
+            items = [InlineKeyboardButton(f"{emoji.yes.value} Буду рабоать", callback_data=f"{callback_id}-{callback_type.yes.value}-{date.strftime('%Y%m%d')}"),
+                                InlineKeyboardButton(f"{emoji.no.value} Не буду рабоать", callback_data=f"{callback_id}-{callback_type.no.value}-{date.strftime('%Y%m%d')}")]            
             for i in schedule:
+                print(i)
                 if i[0] == date:
                     if i[3] is not None:
                         text = f"ТП: {BDWorker.get_rental_point_by_id(i[3])[0]}"
@@ -142,6 +145,7 @@ class Manager:
                     elif i[1] == False:
                         items = [InlineKeyboardButton(f"{emoji.yes.value} Буду рабоать", callback_data=f"{callback_id}-{callback_type.yes.value}-{date.strftime('%Y%m%d')}"),
                                 InlineKeyboardButton(f"{emoji.ok.value}", callback_data=f"{callback_id}-{callback_type.ok.value}-{date.strftime('%Y%m%d')}")]
+                        
         markup.add(*items)
         self.bot.reply_to(msg, f"Выбранная дата: {date.day} {month_dic[date.strftime('%B')]}"
                               f"\n{text}", reply_markup=markup)
@@ -232,7 +236,7 @@ class Manager:
                                                   f"-{operator_id[0]}"))
         markup.add(*operators)
         self.bot.edit_message_text(chat_id = msg.chat.id, message_id = msg.message_id, 
-                                   text=f"Выберите сотрудника которого хотите {"добавить" if command == callback_type.add.value else "удалить"}",
+                                   text=f"Выберите сотрудника которого хотите {'добавить' if command == callback_type.add.value else 'удалить'}",
                                    reply_markup = markup)
     
     def remove_operator(self, msg : types.Message, date:date, rental_point_id:int, operator_id:int):
