@@ -2,11 +2,13 @@ import datetime
 from datetime import date
 from calendar import monthrange
 from enum import Enum
+from io import BytesIO
 
 from dateutil.relativedelta import relativedelta
 
 import locale
 
+import openpyxl
 import telebot
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
@@ -245,6 +247,34 @@ class Manager:
         self.bot.delete_message(msg.chat.id, msg.message_id)
         self.choise_day_for_operator(msg, date, isFirstCall=False)
     #endregion    
+    #region Выгрузить отчет
+    def create_report(self, msg):
+        pass
+
+    def create_excel_file(self):
+        users = BDWorker.get_all_users()
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "Сотрудники"
+
+
+        sheet.append(["ID", "Имя", "Должность", "Часовая ставка"])
+
+
+        for user in users:
+            if len(user) == 4:
+                user_id, full_name, post_name, hour_rate = user
+                sheet.append([user_id, full_name, post_name, hour_rate])
+            else:
+                print("Ошибка: неверное количество данных для пользователя:", user)
+
+
+        excel_file = BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+
+        return excel_file
+    #endregion
     #region обработчики сообщий, колбэков и комманд
     func = {"Заполнить свой график": lambda self, msg: self.choise_month_for_me(msg),
             "Заполнить график операторов": lambda self, msg: self.choise_month_for_operator(msg),

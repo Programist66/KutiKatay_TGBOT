@@ -74,7 +74,8 @@ def Create_all_tables():
                         non_cash integer NOT NULL,
                         count_of_checks integer NOT NULL,
                         refund integer NOT NULL,
-                        how_long_point_iswork integer                        
+                        how_long_point_iswork integer,
+                        app_result integer DEFAULT 0                        
                     );''')
         conn.commit()
         print("Таблицы созданы либо существуют")
@@ -292,3 +293,11 @@ def update_schedules_for_operator_id_by_date_and_rental_point_id(operator_id:int
             AND user_id = %s
             ''', (rental_point_id, date.isoformat(), operator_id))
             conn.commit()
+
+def get_day_result_for_rental_point_id_by_month(rental_point_id:int, date:date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT date, (cash+non_cash+)
+            ''')
