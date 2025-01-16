@@ -61,7 +61,19 @@ def Create_all_tables():
                         work_date date NOT NULL,
                         Point_id integer NULL REFERENCES Rental_point(Id),
                         User_id integer REFERENCES users (Id),
-                        isWork boolean
+                        isWork boolean,
+                        hour_count smallint NOT NULL DEFAULT 0
+                    );''')
+            cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS day_rezult
+                    (
+                        id serial PRIMARY KEY,
+                        date date NOT NULL,
+                        point_id serial REFERENCES Rental_point(id),
+                        cash integer NOT NULL,
+                        non_cash integer NOT NULL,
+                        count_of_checks integer NOT NULL,
+                        refund integer NOT NULL                        
                     );''')
         conn.commit()
         print("Таблицы созданы либо существуют")
@@ -128,7 +140,7 @@ def get_schedule_by_tg_id(tg_id, month_number):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute('''
-            SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id 
+            SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id, schedules.hour_count
                 FROM schedules, users WHERE schedules.user_id = 
                 (SELECT Id FROM users WHERE telegram_chat_id = %s)
                 AND
@@ -143,7 +155,7 @@ def get_schedule_by_tg_id_and_date(tg_id, date: date):
     with conn:
         with conn.cursor() as cursor:
             cursor.execute('''
-                SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id 
+                SELECT schedules.work_date,schedules.iswork, users.full_name, schedules.point_id, schedules.hour_count
                     FROM schedules, users WHERE schedules.user_id = 
                     (SELECT Id FROM users WHERE telegram_chat_id = %s)
                     AND

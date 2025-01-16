@@ -54,6 +54,14 @@ class callback_type(Enum):
     add = "add"
     add_operator ="ao"
 
+def declension_hours(n, one = "час", two = "часа", five = "часов"):
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    elif 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return two
+    else:
+        return five
+
 callback_id = "manager"
 
 class Manager:
@@ -118,6 +126,7 @@ class Manager:
                           text = "Вы не работали"
                         else:
                             text = f"Вы работали на ТП: {BDWorker.get_rental_point_by_id(schedule[i][3])[0]}"
+                            text += f"\nОтработали: {schedule[i][4]} {declension_hours(schedule[i][4])}"
 
         else:
             text = "ТП не назначена управляющим"            
