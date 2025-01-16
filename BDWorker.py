@@ -73,7 +73,8 @@ def Create_all_tables():
                         cash integer NOT NULL,
                         non_cash integer NOT NULL,
                         count_of_checks integer NOT NULL,
-                        refund integer NOT NULL                        
+                        refund integer NOT NULL,
+                        how_long_point_iswork integer                        
                     );''')
         conn.commit()
         print("Таблицы созданы либо существуют")
