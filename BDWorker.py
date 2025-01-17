@@ -112,6 +112,12 @@ def get_operator_type_by_id(chat_id):
             post = cursor.fetchone()
             return post[0] if post else None
 
+def get_user_by_TG_id(tg_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''SELECT id FROM users WHERE telegram_chat_id = %s''',(tg_id,))
+            return cursor.fetchone()
 
 def get_operator_by_uid(UID):
     conn = get_db_connection()
@@ -304,3 +310,121 @@ def get_day_result_for_rental_point_id_by_month(rental_point_id:int, date:date):
             WHERE extract(month from day_rezult.date) = %s AND point_id = %s 
             ''', (date.month, rental_point_id))
             return cursor.fetchall()
+
+def add_report(date:date, point_name:str, emploee_name:str, cash:int, non_cah:int, count_of_checks:int, hour_count:int, refund: int, app:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            INSERT INTO day_rezult(date, point_id, cash, non_cash, count_of_checks, refund, app_result)
+            VALUES(%s, (select id from Rental_point where name = %s), %s, %s, %s, %s, %s)
+            ''', (date, point_name, cash, non_cah, count_of_checks, refund, app))
+            cursor.execute('''
+            UPDATE schedules SET hour_count = %s
+            WHERE work_date = %s 
+            AND point_id = (SELECT id FROM rental_point WHERE name = %s)
+            AND user_id = (SELECT id FROM users WHERE full_name = %s)
+            ''', (hour_count, date, point_name, emploee_name))
+            conn.commit()
+
+def get_schedule_for_opeartor_id_by_date_diapozone(opeartor_id:int, start_date:date, end_date:date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT work_date, point_id, hour_count FROM schedules
+            WHERE work_date >= %s AND
+            work_date <= %s AND
+            iswork = true AND
+            point_id is NOT NULL AND
+            user_id = %s AND
+            hour_count > 0
+            ''', (start_date.isoformat(), end_date.isoformat(), opeartor_id))
+            return cursor.fetchall()
+
+def get_hour_rate_by_user_id(user_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT rate FROM hour_rate WHERE id = (SELECT hour_id FROM posts WHERE id = (SELECT post_id FROM users WHERE id = %s))
+            ''', (user_id,))
+            return cursor.fetchone()
+
+def get_percent_rate_by_point_id(rental_point_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT count FROM percent_rate WHERE id = (SELECT rate_id FROM rental_point WHERE id = %s)
+            ''', (rental_point_id,))
+            return cursor.fetchone()
+
+def get_day_result_for_rental_point_id_by_date(rental_point_id:int, date:date):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            SELECT (cash+non_cash+app_result-refund) as money_result, how_long_point_iswork
+            FROM day_rezult
+            WHERE date = %s AND point_id = %s 
+            ''', (date.isoformat(), rental_point_id))
+            return cursor.fetchone()
+
+def get_not_done_report_id_work_hour_for_rental_point_id(rental_point_id:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT date FROM day_rezult WHERE how_long_point_iswork is NULL AND point_id = %s
+            ''', (rental_point_id,))
+            return cursor.fetchall()
+
+def update_report_by_date_and_rental_point_id(date:date, rental_point_id:int, work_hour:int):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+            UPDATE day_rezult SET how_long_point_iswork = %s
+            WHERE date = %s AND point_id = %s
+            ''', (work_hour, date, rental_point_id))
+            conn.commit()
+
+def get_available_roles():
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT id, name FROM posts')
+            return cursor.fetchall()
+
+def update_employee_role_in_db(user_id, new_role_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE users 
+                SET Post_id = %s
+                WHERE id = %s
+            ''', (new_role_id, user_id))
+
+def get_hour_rate_by_role(role_id):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT hr.rate 
+                FROM posts p
+                JOIN hour_rate hr ON p.hour_id = hr.id
+                WHERE p.id = %s
+            ''', (role_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+def update_employee_name_in_db(user_id, new_full_name):
+    conn = get_db_connection()
+    with conn:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                    UPDATE users 
+                    SET full_name = %s
+                    WHERE id = %s
+                ''', (new_full_name, user_id))

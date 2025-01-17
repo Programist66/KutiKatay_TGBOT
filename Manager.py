@@ -55,6 +55,7 @@ class callback_type(Enum):
     remove_operator = "ro"
     add = "add"
     add_operator ="ao"
+    next_report = "nr"
 
 def declension_hours(n, one = "час", two = "часа", five = "часов"):
     if n % 10 == 1 and n % 100 != 11:
@@ -251,6 +252,29 @@ class Manager:
         self.bot.delete_message(msg.chat.id, msg.message_id)
         self.choise_day_for_operator(msg, date, isFirstCall=False)
     #endregion    
+    #region Ведение отчета
+    def get_report(self, msg:types.Message):
+        my_rental_points = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id)
+        reports = {}
+        for my_rental_point in my_rental_points:
+            temp = BDWorker.get_not_done_report_id_work_hour_for_rental_point_id(my_rental_point[0])
+            if temp != []:
+                reports[my_rental_point[0]] = temp
+        if len(reports) == 0:
+            self.bot.send_message(msg.chat.id, "Незаполненых отчет нет:)")
+            return
+        rental_points_id = list(reports.keys())
+        rental_point_id = rental_points_id[0]
+        report = reports[rental_point_id]
+        send_msg = self.bot.send_message(msg.chat.id, f"Дата: {report[0][0].day} {month_dic[(report[0][0]).strftime('%B')]}\n"+
+                                                    f"Введите колличество часов которое отработала точка {BDWorker.get_rental_point_by_id(rental_point_id)[0]}:")
+        self.bot.register_next_step_handler(send_msg, self.update_report, report[0][0], rental_point_id)
+    
+    def update_report(self, msg: types.Message, date:date, rental_point_id:int):
+        work_hour = int(msg.text.strip())
+        BDWorker.update_report_by_date_and_rental_point_id(date=date, rental_point_id=rental_point_id, work_hour=work_hour)
+        self.get_report(msg)
+    #endregion
     #region Выгрузить отчет
     def create_report(self, msg : types.Message):        
         points_id = BDWorker.get_subordinate_rental_points_id_by_tg_id(msg.chat.id)
@@ -296,10 +320,11 @@ class Manager:
         return excel_file
     
     #endregion
+
     #region обработчики сообщий, колбэков и комманд
     func = {"Заполнить свой график": lambda self, msg: self.choise_month_for_me(msg),
             "Заполнить график операторов": lambda self, msg: self.choise_month_for_operator(msg),
-            "Добавить отчет": lambda self, msg: self.bot.send_message(msg.chat.id, text=f"Пока не реализованно!!"),
+            "Добавить отчет": lambda self, msg: self.get_report(msg),
             "Выгрузить отчет": lambda self, msg: self.create_report(msg),
             }
 

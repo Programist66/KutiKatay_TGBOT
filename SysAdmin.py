@@ -1,7 +1,7 @@
-from io import BytesIO
 import telebot
 from telebot import types
 import openpyxl
+from io import BytesIO
 import Hasher
 import BDWorker
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InputFile
@@ -96,8 +96,6 @@ class SysAdmin:
             full_name, post_name, hour_rate = user_info
 
             markup = types.InlineKeyboardMarkup()
-
-
             markup.add(types.InlineKeyboardButton(text="👤 ФИО: " + full_name, callback_data="dummy"))
             markup.add(types.InlineKeyboardButton(text="📋 Должность: " + post_name, callback_data="dummy"))
             markup.add(
@@ -105,7 +103,7 @@ class SysAdmin:
 
 
 
-            markup.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_admin"))
+            markup.add(types.InlineKeyboardButton(text="🔙 Назад", callback_data=f"{callback_id}-back_to_admin"))
 
             self.bot.send_message(call.message.chat.id,
                                   "🧑‍💼 **Информация о пользователе:**",
@@ -174,8 +172,8 @@ class SysAdmin:
             if len(employee) >= 4:
                 user_id, full_name, post_name, hour_rate = employee[:4]
                 markup.add(
-                    types.InlineKeyboardButton(text=f"{full_name}", callback_data=f"info-{user_id}"),
-                    types.InlineKeyboardButton(text=f"{post_name}", callback_data="dummy"),
+                    types.InlineKeyboardButton(text=f"{full_name}", callback_data=f"{callback_id}-edit_name-{user_id}"),
+                    types.InlineKeyboardButton(text=f"{post_name}", callback_data=f"{callback_id}-edit_role-{user_id}"),
                     types.InlineKeyboardButton(text=f"{hour_rate}₽", callback_data="dummy"),
                 )
         items = []
@@ -190,7 +188,6 @@ class SysAdmin:
         markup.add(*items)
 
         message = self.bot.send_message(chat_id, "🧑‍💼 Информация о сотрудниках:", reply_markup=markup)
-
         self.last_message_id = message.message_id
 
     func = {
@@ -198,11 +195,10 @@ class SysAdmin:
         "Просмотр всех сотрудников": lambda self, msg: self.view_all_employees_handler(msg),
         "Создать Excel": lambda self, msg: self.create_excel_handler(msg),
         "Редактировать сотрудников": lambda self, msg: self.display_employee_details(msg)
-    }
+        }
 
     def callback_handler(self, call):
         data = call.data.split(sep="-")[1:]
-
         if data[0] == "view_all_employees":
             self.view_all_employees_handler(call.message)
         elif data[0] == "view_user":
@@ -217,8 +213,50 @@ class SysAdmin:
                 self.current_employee_index -= 1
                 self.display_employee_details(call.message)
         elif data[0] == "next":
-            if(self.current_employee_index + 1) * self.page_size < len(self.employees_list):
+            if (self.current_employee_index + 1) * self.page_size < len(self.employees_list):
                 self.current_employee_index += 1
                 self.display_employee_details(call.message)
+        elif data[0] == "edit_name":
+            user_id = int(data[1])
+            self.prompt_new_name(call.message, user_id)
+        elif data[0] == "edit_role":
+            user_id = int(data[1])
+            self.prompt_select_role(call.message, user_id)
+        elif data[0] == "update_role":
+            user_id = int(data[1])
+            new_role_id = int(data[2])
+            BDWorker.update_employee_role_in_db(user_id, new_role_id)
+            new_hour_rate = BDWorker.get_hour_rate_by_role(new_role_id)
+            self.bot.send_message(call.message.chat.id,
+                                  f"Роль обновлена на: {new_role_id}. Часовая ставка теперь: {new_hour_rate}₽.")
+            self.display_employee_details(call.message)
+
+    def prompt_new_name(self, message, user_id):
+        self.bot.send_message(message.chat.id, "Введите новое ФИО оператора:")
+        self.bot.register_next_step_handler(message, self.update_employee_name, user_id)
+
+    def update_employee_name(self, message, user_id):
+        new_name = message.text
+        BDWorker.update_employee_name_in_db(user_id, new_name)
+        self.bot.send_message(message.chat.id, f"Имя обновлено на: {new_name}!")
+        self.display_employee_details(message)
+
+    def prompt_select_role(self, message, user_id):
+        roles = BDWorker.get_available_roles()
+        markup = types.InlineKeyboardMarkup()
+        for role in roles:
+            role_id, role_name = role
+            markup.add(types.InlineKeyboardButton(text=role_name, callback_data=f"{callback_id}-update_role-{user_id}-{role_id}"))
+
+        self.bot.send_message(message.chat.id, "Выберите новую роль оператора:", reply_markup=markup)
+
+    def callback_handler_update_role(self, call):
+        _, user_id, new_role = call.data.split('-')
+        new_hour_rate = BDWorker.get_hour_rate_by_role(new_role)
+        BDWorker.update_employee_role_in_db(user_id, new_role, new_hour_rate)
+        self.bot.send_message(call.message.chat.id,
+                              f"Роль обновлена на: {new_role}. Часовая ставка теперь: {new_hour_rate}₽.")
+        self.display_employee_details(call.message)
     def msg_handler(self, msg):
         self.func[msg.text](self, msg)
+
